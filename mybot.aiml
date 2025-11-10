@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="1.0.1" encoding="UTF-8">
+
+  <category>
+    <pattern>HELLO</pattern>
+    <template>Hello! How can I assist you today?</template>
+  </category>
+  <category>
+    <pattern>HI</pattern>
+    <template><srai>HELLO</srai></template>
+  </category>
+  <category>
+    <pattern>HEY</pattern>
+    <template><srai>HELLO</srai></template>
+  </category>
+
+  <category>
+    <pattern>GOODBYE</pattern>
+    <template>Goodbye! Have a nice day.</template>
+  </category>
+  <category>
+    <pattern>BYE</pattern>
+    <template><srai>GOODBYE</srai></template>
+  </category>
+
+  <category>
+    <pattern>WHAT IS YOUR NAME</pattern>
+    <template>I am your ISYS30221 course chatbot.</template>
+  </category>
+  <category>
+    <pattern>WHO ARE YOU</pattern>
+    <template><srai>WHAT IS YOUR NAME</srai></template>
+  </category>
+
+  <category>
+    <pattern>WHAT CAN YOU DO</pattern>
+    <template>
+      I use AIML patterns first. If nothing matches, I use TF-IDF + cosine similarity over a Q/A knowledge base.
+    </template>
+  </category>
+
+  <category>
+    <pattern>HELP</pattern>
+    <template>
+      Try: HELLO, WHAT IS AI, or TELL ME ABOUT *. For summaries, type: wiki &lt;topic&gt;.
+    </template>
+  </category>
+
+  <category>
+    <pattern>HOW ARE YOU</pattern>
+    <template>I am running smoothly. How can I help?</template>
+  </category>
+  <category>
+    <pattern>THANK YOU</pattern>
+    <template>You're welcome!</template>
+  </category>
+
+  <category>
+    <pattern>WHAT IS AI</pattern>
+    <template>Artificial Intelligence is the simulation of human intelligence processes by machines.</template>
+  </category>
+  <category>
+    <pattern>DEFINE MACHINE LEARNING</pattern>
+    <template>Machine learning uses data to train models that recognize patterns and make predictions.</template>
+  </category>
+
+  <category>
+    <pattern>TELL ME ABOUT *</pattern>
+    <template>Try: wiki <star/> — I can fetch a short summary for you.</template>
+  </category>
+  <category>
+    <pattern>EXPLAIN *</pattern>
+    <template>You can ask a direct question, or try "wiki <star/>" for a quick summary.</template>
+  </category>
+
+  <category>
+    <pattern>ARE YOU A CHATBOT</pattern>
+    <template>Yes. Do you like chatbots?</template>
+  </category>
+  <category>
+    <pattern>YES</pattern>
+    <that>Yes. Do you like chatbots?</that>
+    <template>Great! I’m happy to help with AI and coursework questions.</template>
+  </category>
+  <category>
+    <pattern>NO</pattern>
+    <that>Yes. Do you like chatbots?</that>
+    <template>No worries — ask me anything else.</template>
+  </category>
+
+  <category>
+    <pattern>GIVE ME A TIP</pattern>
+    <template>
+      <random>
+        <li>Use :reload after editing AIML or CSV.</li>
+        <li>Grow qa_kb.csv with topic-specific questions for better fallback.</li>
+        <li>Use :stats to see KB size and threshold.</li>
+      </random>
+    </template>
+  </category>
+
+</aiml>
