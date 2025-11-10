@@ -1,5 +1,6 @@
 import os
 import csv
+import re
 import time
 import aiml
 import wikipedia
@@ -7,37 +8,35 @@ import pandas as pd
 from io import StringIO
 from pathlib import Path
 from datetime import datetime
-from typing import List, Tuple, Optional
-
+from typing import List, Tuple, Optional, Set
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from rapidfuzz import process, fuzz
 
 AIML_FILE = "mybot.aiml"
 KB_FILE = "qa_kb.csv"
 SIM_THRESHOLD = 0.35
 LOG_DIR = Path("chat_logs")
 
-DEBUG = False  
-
+DEBUG = False
+SPELL_FIX_ENABLED = True
 
 def banner():
     print("======================================================")
-    print(" ISYS30221 Chatbot  —  AIML + TF-IDF Similarity Fallback")
-    print(" Functionality: AIML, TF-IDF+Cosine fallback, Wikipedia")
-    print(" Commands: :help  :reload  :stats  :debug on/off  :quit ")
-    print(" Wikipedia: wiki <topic>                               ")
+    print(" ISYS30221 Chatbot — AIML + TF-IDF Similarity Fallback")
+    print(" Typo handling enabled (RapidFuzz)")
+    print(" Commands: :help  :reload  :stats  :debug on/off  :spell on/off  :dict  :quit")
+    print(" Wikipedia: wiki <topic>")
     print("======================================================")
-
 
 def load_aiml_kernel() -> aiml.Kernel:
     kernel = aiml.Kernel()
-    kernel.verbose(False)            
+    kernel.verbose(False)
     print("Loading mybot.aiml...", end="", flush=True)
     t0 = time.time()
     kernel.learn(AIML_FILE)
     print(f" done ({time.time()-t0:.2f}s)")
     return kernel
-
 
 def _tolerant_parse_lines(lines: List[str]) -> List[Tuple[str, str]]:
     parsed: List[Tuple[str, str]] = []
@@ -65,12 +64,10 @@ def _tolerant_parse_lines(lines: List[str]) -> List[Tuple[str, str]]:
                 break
     return parsed
 
-
 def load_kb(kb_path: str):
     if not os.path.exists(kb_path):
         print(f"[warn] KB file not found: {kb_path}. Similarity fallback disabled.")
         return [], [], None, None
-
     try:
         df = pd.read_csv(kb_path, sep=None, engine="python")
     except Exception as e:
@@ -80,15 +77,12 @@ def load_kb(kb_path: str):
         if not raw_lines:
             print("[warn] KB is empty.")
             return [], [], None, None
-
         header = raw_lines[0].lower().replace(" ", "")
         data_lines = raw_lines[1:] if header in ("question,answer", "question|answer", "question\tanswer") else raw_lines
-
         rows = _tolerant_parse_lines(data_lines)
         if not rows:
             print("[warn] No rows parsed from KB.")
             return [], [], None, None
-
         sio = StringIO()
         sio.write("Question,Answer\n")
         for q, a in rows:
@@ -97,12 +91,10 @@ def load_kb(kb_path: str):
             sio.write(f"{q_esc},{a_esc}\n")
         sio.seek(0)
         df = pd.read_csv(sio)
-
     cols_lower = {c.lower().strip(): c for c in df.columns}
     if "question" not in cols_lower or "answer" not in cols_lower:
         print("[warn] KB must have columns: Question, Answer")
         return [], [], None, None
-
     df = df.rename(columns={cols_lower["question"]: "Question", cols_lower["answer"]: "Answer"})
     df["Question"] = df["Question"].fillna("").astype(str).str.strip()
     df["Answer"] = df["Answer"].fillna("").astype(str).str.strip()
@@ -110,24 +102,66 @@ def load_kb(kb_path: str):
     if df.empty:
         print("[warn] KB has no usable rows after cleaning.")
         return [], [], None, None
-
     questions = df["Question"].str.lower().tolist()
     answers = df["Answer"].tolist()
-
     vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1, stop_words="english")
     q_mat = vectorizer.fit_transform(questions)
     print(f"Loaded KB: {len(questions)} Q/A pairs")
     return questions, answers, vectorizer, q_mat
 
+_WORD_RE = re.compile(r"[A-Za-z][A-Za-z\-\']+")
 
-def best_answer_fallback(
-    user_text: str,
-    questions: List[str],
-    answers: List[str],
-    vectorizer: Optional[TfidfVectorizer],
-    q_mat,
-    threshold: float = SIM_THRESHOLD,
-) -> Optional[str]:
+DOMAIN_LEXICON = {
+    "recycle","recycling","recyclables","recyclable","contamination","compost","composting","organics",
+    "plastic","plastics","glass","metal","aluminum","aluminium","steel","tin","paper","cardboard","carton","cartons",
+    "e-waste","ewaste","electronics","battery","batteries","hazardous","mercury",
+    "landfill","circular","economy","reuse","reduce","recover",
+    "pet","hdpe","ldpe","pp","ps","pet1","hdpe2","ldpe4","pp5","ps6","other7",
+    "clamshell","biobased","compostable","liner","lining","foam","styrofoam",
+    "caps","lids","jugs","bottles","trays","utensils","foil","pans","aerosol","paint",
+    "tanglers","hoses","cords","wires",
+    "magazines","newspapers","mail","shredded","tissue","wrap",
+    "jars","mixed","color-separation","pyrex",
+}
+
+def tokenize_words(text: str) -> List[str]:
+    return _WORD_RE.findall(text.lower())
+
+def build_vocab(questions: List[str]) -> Set[str]:
+    vocab = set(DOMAIN_LEXICON)
+    for q in questions:
+        for w in tokenize_words(q):
+            if len(w) > 1:
+                vocab.add(w)
+    vocab.update({"what","why","how","can","is","are","the","a","an","in","on","do","does","should","with","for","of","to","and"})
+    return vocab
+
+def normalize_typos(user_text: str, vocab: Set[str]) -> str:
+    if not SPELL_FIX_ENABLED or not vocab:
+        return user_text
+    words = user_text.split()
+    corrected = []
+    for token in words:
+        core = token.strip()
+        low = core.lower()
+        if len(low) < 4 or any(ch.isdigit() for ch in low) or low in vocab:
+            corrected.append(core)
+            continue
+        cand, score, _ = process.extractOne(low, vocab, scorer=fuzz.WRatio)
+        if score >= 88 or (score >= 80 and abs(len(cand) - len(low)) <= 2):
+            if core.istitle():
+                corrected.append(cand.capitalize())
+            elif core.isupper():
+                corrected.append(cand.upper())
+            else:
+                corrected.append(cand)
+            if DEBUG and cand != low:
+                print(f"[spell] {core} -> {cand} (score={score})")
+        else:
+            corrected.append(core)
+    return " ".join(corrected)
+
+def best_answer_fallback(user_text: str, questions: List[str], answers: List[str], vectorizer: Optional[TfidfVectorizer], q_mat, threshold: float = SIM_THRESHOLD) -> Optional[str]:
     if vectorizer is None or q_mat is None or not questions:
         return None
     vec = vectorizer.transform([user_text.lower()])
@@ -139,17 +173,14 @@ def best_answer_fallback(
         return answers[idx]
     return None
 
-
 def wiki_summary(topic: str) -> str:
     try:
         return wikipedia.summary(topic, sentences=2)
     except Exception:
         return "Sorry, I couldn't find a concise summary on Wikipedia."
 
-
 def ensure_log_dir():
     LOG_DIR.mkdir(exist_ok=True)
-
 
 def start_transcript() -> Path:
     ensure_log_dir()
@@ -158,7 +189,6 @@ def start_transcript() -> Path:
     path.write_text("Chat transcript started\n", encoding="utf-8")
     return path
 
-
 def append_log(log_path: Path, speaker: str, text: str):
     try:
         with log_path.open("a", encoding="utf-8") as f:
@@ -166,14 +196,13 @@ def append_log(log_path: Path, speaker: str, text: str):
     except Exception:
         pass
 
-
 def main():
-    global DEBUG
+    global DEBUG, SPELL_FIX_ENABLED
     kernel = load_aiml_kernel()
     questions, answers, vectorizer, q_mat = load_kb(KB_FILE)
+    vocab = build_vocab(questions)
     banner()
     log_path = start_transcript()
-
     while True:
         try:
             user = input("You: ").strip()
@@ -182,42 +211,35 @@ def main():
             break
         if not user:
             continue
-
         append_log(log_path, "User", user)
         low = user.lower()
-
-        # Commands
         if low == ":quit":
             bot = "Goodbye!"
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             break
-
         if low == ":help":
             bot = (
-                "I use AIML for exact/templated matches and TF-IDF + cosine similarity for fallback over a Q/A KB.\n"
-                "Commands: :help  :reload  :stats  :debug on/off  :quit\n"
-                "Wikipedia: wiki <topic>\n"
-                "Tip: expand mybot.aiml and qa_kb.csv with your topic content."
+                "I use AIML for exact matches and TF-IDF + cosine for fallback over a Recycling Q/A KB.\n"
+                "Commands: :help  :reload  :stats  :debug on/off  :spell on/off  :dict  :quit\n"
+                "Wikipedia: wiki <topic>"
             )
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
-
         if low == ":reload":
             kernel = load_aiml_kernel()
             questions, answers, vectorizer, q_mat = load_kb(KB_FILE)
-            bot = "Reloaded AIML and KB."
+            vocab = build_vocab(questions)
+            bot = "Reloaded AIML and KB. Rebuilt vocabulary for typo handling."
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
-
         if low == ":stats":
-            bot = f"AIML: active\nKB size: {len(questions)}\nSimilarity threshold: {SIM_THRESHOLD}\nDebug: {'on' if DEBUG else 'off'}"
+            bot = f"AIML: active\nKB size: {len(questions)}\nSimilarity threshold: {SIM_THRESHOLD}\nDebug: {'on' if DEBUG else 'off'}\nSpell-fix: {'on' if SPELL_FIX_ENABLED else 'off'}\nVocab size: {len(vocab)}"
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
-
         if low.startswith(":debug"):
             parts = low.split()
             if len(parts) == 2 and parts[1] in ("on", "off"):
@@ -228,33 +250,44 @@ def main():
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
-
-        if low.startswith("wiki "):
-            topic = user[5:].strip()
-            bot = wiki_summary(topic) if topic else "Usage: wiki <topic>"
+        if low.startswith(":spell"):
+            parts = low.split()
+            if len(parts) == 2 and parts[1] in ("on", "off"):
+                SPELL_FIX_ENABLED = (parts[1] == "on")
+                bot = f"Spell-fix set to {parts[1]}"
+            else:
+                bot = "Usage: :spell on | :spell off"
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
-
-        # 1) Try AIML first
-        resp = kernel.respond(user)
+        if low == ":dict":
+            bot = f"Vocabulary contains {len(vocab)} tokens (KB + domain lexicon)."
+            print("Bot:", bot)
+            append_log(log_path, "Bot", bot)
+            continue
+        if low.startswith("wiki "):
+            topic = user[5:].strip()
+            topic_norm = normalize_typos(topic, vocab)
+            bot = wiki_summary(topic_norm) if topic_norm else "Usage: wiki <topic>"
+            print("Bot:", bot)
+            append_log(log_path, "Bot", bot)
+            continue
+        user_norm = normalize_typos(user, vocab)
+        if DEBUG and user_norm != user:
+            print(f"[spell] '{user}' -> '{user_norm}'")
+        resp = kernel.respond(user_norm)
         if resp:
             print("Bot:", resp)
             append_log(log_path, "Bot", resp)
             continue
-
-        # 2) Similarity fallback
-        fall = best_answer_fallback(user, questions, answers, vectorizer, q_mat)
+        fall = best_answer_fallback(user_norm, questions, answers, vectorizer, q_mat)
         if fall:
             print("Bot:", fall)
             append_log(log_path, "Bot", fall)
             continue
-
-        # 3) Default fallback
         bot = "I'm not sure about that. Could you rephrase or ask something else?"
         print("Bot:", bot)
         append_log(log_path, "Bot", bot)
-
 
 if __name__ == "__main__":
     main()
