@@ -14,7 +14,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from rapidfuzz import process, fuzz
 
-# --- NEW: lemmatisation (Task A requirement) ---
 import nltk
 from nltk.stem import WordNetLemmatizer
 
@@ -74,9 +73,7 @@ def _tolerant_parse_lines(lines: List[str]) -> List[Tuple[str, str]]:
     return parsed
 
 
-# -------------------------
 # Tokenization + Lemmatize
-# -------------------------
 _WORD_RE = re.compile(r"[A-Za-z][A-Za-z\-\']+")
 
 lemmatizer = WordNetLemmatizer()
@@ -111,9 +108,7 @@ def lemmatize_text(text: str) -> str:
     return " ".join(lemmas)
 
 
-# -------------------------
 # KB Loading (TF-IDF built on lemmatised questions)
-# -------------------------
 def load_kb(kb_path: str):
     if not os.path.exists(kb_path):
         print(f"[warn] KB file not found: {kb_path}. Similarity fallback disabled.")
@@ -157,11 +152,9 @@ def load_kb(kb_path: str):
         print("[warn] KB has no usable rows after cleaning.")
         return [], [], None, None
 
-    # Keep a readable version for debug/vocab
     questions_raw_lower = df["Question"].str.lower().tolist()
     answers = df["Answer"].tolist()
 
-    # --- REQUIRED: lemmatise questions before TF-IDF ---
     questions_lem = [lemmatize_text(q) for q in questions_raw_lower]
 
     vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1, stop_words="english")
@@ -171,9 +164,7 @@ def load_kb(kb_path: str):
     return questions_raw_lower, answers, vectorizer, q_mat
 
 
-# -------------------------
-# Typo handling (same as your code)
-# -------------------------
+# Typo handling
 DOMAIN_LEXICON = {
     "recycle","recycling","recyclables","recyclable","contamination","compost","composting","organics",
     "plastic","plastics","glass","metal","aluminum","aluminium","steel","tin","paper","cardboard","carton","cartons",
@@ -222,9 +213,7 @@ def normalize_typos(user_text: str, vocab: Set[str]) -> str:
     return " ".join(corrected)
 
 
-# -------------------------
 # Similarity fallback (lemmatisation + TF-IDF + cosine)
-# -------------------------
 def best_answer_fallback(
     user_text: str,
     questions: List[str],
@@ -236,7 +225,6 @@ def best_answer_fallback(
     if vectorizer is None or q_mat is None or not questions:
         return None
 
-    # --- REQUIRED: lemmatise user input before TF-IDF ---
     user_proc = lemmatize_text(user_text.lower())
 
     vec = vectorizer.transform([user_proc])
@@ -252,9 +240,7 @@ def best_answer_fallback(
     return None
 
 
-# -------------------------
-# Wikipedia helper + logging (unchanged)
-# -------------------------
+# Wikipedia helper + logging 
 def wiki_summary(topic: str) -> str:
     try:
         return wikipedia.summary(topic, sentences=2)
@@ -282,7 +268,6 @@ def append_log(log_path: Path, speaker: str, text: str):
 def main():
     global DEBUG, SPELL_FIX_ENABLED
 
-    # NEW: ensure lemmatizer resources exist
     ensure_nltk()
 
     kernel = load_aiml_kernel()
@@ -379,19 +364,16 @@ def main():
             append_log(log_path, "Bot", bot)
             continue
 
-        # 1) Typo-normalize
         user_norm = normalize_typos(user, vocab)
         if DEBUG and user_norm != user:
             print(f"[spell] '{user}' -> '{user_norm}'")
 
-        # 2) AIML exact match
         resp = kernel.respond(user_norm)
         if resp:
             print("Bot:", resp)
             append_log(log_path, "Bot", resp)
             continue
 
-        # 3) Similarity fallback (lemmatisation + TF-IDF + cosine)
         fall = best_answer_fallback(user_norm, questions, answers, vectorizer, q_mat)
         if fall:
             print("Bot:", fall)
