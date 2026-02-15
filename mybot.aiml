@@ -8,7 +8,7 @@
     <pattern>START</pattern>
     <template>
       <think><set name="domain">RECYCLING</set></think>
-      Hello! I’m your Recycling Assistant. Ask me about what to recycle, contamination, plastics, glass, composting, e-waste, and more.
+      Hello! I'm your Recycling Assistant. Ask me about what to recycle, contamination, plastics, glass, composting, e-waste, and more.
     </template>
   </category>
 
@@ -53,7 +53,7 @@
   <category>
     <pattern>WHAT CAN YOU DO</pattern>
     <template>
-      I handle recycling FAQs with AIML. If I don’t have an exact pattern, I’ll search a Q/A knowledge base using similarity to find the best answer.
+      I handle recycling FAQs with AIML. If I don't have an exact pattern, I'll search a Q/A knowledge base using similarity to find the best answer.
     </template>
   </category>
 
@@ -98,7 +98,7 @@
 
   <category>
     <pattern>HOW TO RECYCLE RIGHT</pattern>
-    <template>Keep items empty, clean, and dry; only put accepted materials in the bin; don’t bag recyclables unless your program says so.</template>
+    <template>Keep items empty, clean, and dry; only put accepted materials in the bin; don't bag recyclables unless your program says so.</template>
   </category>
 
   <!-- =======================================================
@@ -111,7 +111,7 @@
 
   <category>
     <pattern>WHAT DO THE NUMBERS ON PLASTIC MEAN</pattern>
-    <template>They indicate resin type (1–7), not universal recyclability. Acceptance varies by city and facility.</template>
+    <template>They indicate resin type (1-7), not universal recyclability. Acceptance varies by city and facility.</template>
   </category>
 
   <category>
@@ -141,7 +141,7 @@
 
   <category>
     <pattern>CAN I RECYCLE STYROFOAM</pattern>
-    <template>Most curbside programs don’t accept foam foodware/packaging. Look for specialty drop-off options.</template>
+    <template>Most curbside programs don't accept foam foodware/packaging. Look for specialty drop-off options.</template>
   </category>
 
   <!-- =======================================================
@@ -154,7 +154,7 @@
 
   <category>
     <pattern>CAN I RECYCLE SHREDDED PAPER</pattern>
-    <template>Many curbside programs don’t accept loose shreds. Check if bagged shreds are allowed at drop-offs.</template>
+    <template>Many curbside programs don't accept loose shreds. Check if bagged shreds are allowed at drop-offs.</template>
   </category>
 
   <category>
@@ -164,12 +164,12 @@
 
   <category>
     <pattern>IS GIFT WRAP RECYCLABLE</pattern>
-    <template>Foil/glitter wrap is usually not recyclable. Plain paper wrap may be accepted; tissue paper often isn’t.</template>
+    <template>Foil/glitter wrap is usually not recyclable. Plain paper wrap may be accepted; tissue paper often isn't.</template>
   </category>
 
   <category>
     <pattern>DO I REMOVE TAPE FROM BOXES</pattern>
-    <template>Remove what’s practical, flatten boxes, and keep them dry.</template>
+    <template>Remove what's practical, flatten boxes, and keep them dry.</template>
   </category>
 
   <!-- =======================================================
@@ -218,7 +218,7 @@
        ======================================================= -->
   <category>
     <pattern>WHAT IS COMPOSTING</pattern>
-    <template>It’s aerobic decomposition of organics (food scraps, yard trimmings) into nutrient-rich compost.</template>
+    <template>It's aerobic decomposition of organics (food scraps, yard trimmings) into nutrient-rich compost.</template>
   </category>
 
   <category>
@@ -241,7 +241,7 @@
        ======================================================= -->
   <category>
     <pattern>HOW TO RECYCLE ELECTRONICS</pattern>
-    <template>Don’t put e-waste in curbside bins. Use manufacturer or retailer take-back or authorized collection events.</template>
+    <template>Don't put e-waste in curbside bins. Use manufacturer or retailer take-back or authorized collection events.</template>
   </category>
 
   <category>
@@ -256,12 +256,12 @@
 
   <category>
     <pattern>ARE AEROSOL CANS RECYCLABLE</pattern>
-    <template>If completely empty, many programs accept them—don’t pierce; check local rules.</template>
+    <template>If completely empty, many programs accept them—don't pierce; check local rules.</template>
   </category>
 
   <category>
     <pattern>CAN I RECYCLE TEXTILES</pattern>
-    <template>Yes via donation or textile recyclers if clean and dry. Don’t place textiles in curbside recycling.</template>
+    <template>Yes via donation or textile recyclers if clean and dry. Don't place textiles in curbside recycling.</template>
   </category>
 
   <!-- =======================================================
@@ -284,12 +284,12 @@
 
   <category>
     <pattern>ARE TINY ITEMS RECYCLABLE</pattern>
-    <template>Very small items often fall through sorting equipment and aren’t captured—avoid placing them in the bin.</template>
+    <template>Very small items often fall through sorting equipment and aren't captured—avoid placing them in the bin.</template>
   </category>
 
   <category>
     <pattern>WHAT ABOUT TANGLERS</pattern>
-    <template>Don’t put hoses, cords, or wires in the bin—they tangle and jam sorting machines.</template>
+    <template>Don't put hoses, cords, or wires in the bin—they tangle and jam sorting machines.</template>
   </category>
 
   <category>
@@ -307,7 +307,7 @@
 
   <category>
     <pattern>WHAT DOES MY CITY ACCEPT</pattern>
-    <template>Please check your local recycling program or hauler’s website for the accepted list and how to prepare items.</template>
+    <template>Please check your local recycling program or hauler's website for the accepted list and how to prepare items.</template>
   </category>
 
   <!-- =======================================================
@@ -337,7 +337,7 @@
       <random>
         <li>Keep items empty, clean, and dry.</li>
         <li>Only put accepted materials in the bin.</li>
-        <li>Don’t bag recyclables unless instructed locally.</li>
+        <li>Don't bag recyclables unless instructed locally.</li>
       </random>
     </template>
   </category>
@@ -358,7 +358,7 @@
         <li>Rinse food residue to avoid contamination.</li>
         <li>Check local rules for plastics #1 and #2; others vary.</li>
         <li>Keep tanglers (hoses, cords) out of the bin.</li>
-        <li>When unsure, check your city’s accepted list.</li>
+        <li>When unsure, check your city's accepted list.</li>
       </random>
     </template>
   </category>
@@ -368,7 +368,7 @@
        ======================================================= -->
   <category>
     <pattern>WHAT SHOULD I DO</pattern>
-    <template>Tell me what material or item you’re unsure about (e.g., PLASTIC CAPS, GLASS, PIZZA BOXES), or try: wiki recycling.</template>
+    <template>Tell me what material or item you're unsure about (e.g., PLASTIC CAPS, GLASS, PIZZA BOXES), or try: wiki recycling.</template>
   </category>
 
   <!-- Common aliases routed via SRAI -->

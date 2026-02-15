@@ -1,0 +1,13 @@
+Chat transcript started
+[2026-02-15T07:49:07] User: Hello
+[2026-02-15T07:49:07] Bot: Hello! How can I help with recycling today?
+[2026-02-15T07:49:30] User: What is recycling
+[2026-02-15T07:49:30] Bot: Recycling means collecting and processing materials that would be trash and turning them into new products.
+[2026-02-15T07:49:32] User: What is recyclin
+[2026-02-15T07:49:32] Bot: Recycling means collecting and processing materials that would be trash and turning them into new products.
+[2026-02-15T07:49:36] User: What is recyclng
+[2026-02-15T07:49:36] Bot: Recycling means collecting and processing materials that would be trash and turning them into new products.
+[2026-02-15T07:49:55] User: What we do in recycling
+[2026-02-15T07:49:55] Bot: Recycling is the process of collecting and processing materials that would otherwise be thrown away as trash and turning them into new products.
+[2026-02-15T07:53:11] User: :quit
+[2026-02-15T07:53:11] Bot: Goodbye!

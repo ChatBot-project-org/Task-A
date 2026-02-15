@@ -12,6 +12,9 @@ from typing import List, Tuple, Optional, Set
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from rapidfuzz import process, fuzz
+import nltk
+from nltk.stem import WordNetLemmatizer
+
 
 AIML_FILE = "mybot.aiml"
 KB_FILE = "qa_kb.csv"
