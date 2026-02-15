@@ -9,9 +9,12 @@ from io import StringIO
 from pathlib import Path
 from datetime import datetime
 from typing import List, Tuple, Optional, Set
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from rapidfuzz import process, fuzz
+
+# --- NEW: lemmatisation (Task A requirement) ---
 import nltk
 from nltk.stem import WordNetLemmatizer
 
@@ -24,13 +27,15 @@ LOG_DIR = Path("chat_logs")
 DEBUG = False
 SPELL_FIX_ENABLED = True
 
+
 def banner():
     print("======================================================")
-    print(" ISYS30221 Chatbot — AIML + TF-IDF Similarity Fallback")
+    print(" ISYS30221 Chatbot — AIML + Lemma TF-IDF Similarity Fallback")
     print(" Typo handling enabled (RapidFuzz)")
     print(" Commands: :help  :reload  :stats  :debug on/off  :spell on/off  :dict  :quit")
     print(" Wikipedia: wiki <topic>")
     print("======================================================")
+
 
 def load_aiml_kernel() -> aiml.Kernel:
     kernel = aiml.Kernel()
@@ -40,6 +45,7 @@ def load_aiml_kernel() -> aiml.Kernel:
     kernel.learn(AIML_FILE)
     print(f" done ({time.time()-t0:.2f}s)")
     return kernel
+
 
 def _tolerant_parse_lines(lines: List[str]) -> List[Tuple[str, str]]:
     parsed: List[Tuple[str, str]] = []
@@ -67,10 +73,52 @@ def _tolerant_parse_lines(lines: List[str]) -> List[Tuple[str, str]]:
                 break
     return parsed
 
+
+# -------------------------
+# Tokenization + Lemmatize
+# -------------------------
+_WORD_RE = re.compile(r"[A-Za-z][A-Za-z\-\']+")
+
+lemmatizer = WordNetLemmatizer()
+
+
+def ensure_nltk():
+    """
+    Ensures required NLTK resources exist.
+    (Needed for WordNetLemmatizer.)
+    """
+    try:
+        nltk.data.find("corpora/wordnet")
+    except LookupError:
+        nltk.download("wordnet")
+    try:
+        nltk.data.find("corpora/omw-1.4")
+    except LookupError:
+        nltk.download("omw-1.4")
+
+
+def tokenize_words(text: str) -> List[str]:
+    return _WORD_RE.findall(text.lower())
+
+
+def lemmatize_text(text: str) -> str:
+    """
+    Convert text -> tokens -> lemmas -> space-joined string.
+    This is the required "lemmatisation" step for similarity matching.
+    """
+    tokens = tokenize_words(text)
+    lemmas = [lemmatizer.lemmatize(t) for t in tokens]
+    return " ".join(lemmas)
+
+
+# -------------------------
+# KB Loading (TF-IDF built on lemmatised questions)
+# -------------------------
 def load_kb(kb_path: str):
     if not os.path.exists(kb_path):
         print(f"[warn] KB file not found: {kb_path}. Similarity fallback disabled.")
         return [], [], None, None
+
     try:
         df = pd.read_csv(kb_path, sep=None, engine="python")
     except Exception as e:
@@ -94,26 +142,38 @@ def load_kb(kb_path: str):
             sio.write(f"{q_esc},{a_esc}\n")
         sio.seek(0)
         df = pd.read_csv(sio)
+
     cols_lower = {c.lower().strip(): c for c in df.columns}
     if "question" not in cols_lower or "answer" not in cols_lower:
         print("[warn] KB must have columns: Question, Answer")
         return [], [], None, None
+
     df = df.rename(columns={cols_lower["question"]: "Question", cols_lower["answer"]: "Answer"})
     df["Question"] = df["Question"].fillna("").astype(str).str.strip()
     df["Answer"] = df["Answer"].fillna("").astype(str).str.strip()
     df = df[(df["Question"] != "") & (df["Answer"] != "")]
+
     if df.empty:
         print("[warn] KB has no usable rows after cleaning.")
         return [], [], None, None
-    questions = df["Question"].str.lower().tolist()
+
+    # Keep a readable version for debug/vocab
+    questions_raw_lower = df["Question"].str.lower().tolist()
     answers = df["Answer"].tolist()
+
+    # --- REQUIRED: lemmatise questions before TF-IDF ---
+    questions_lem = [lemmatize_text(q) for q in questions_raw_lower]
+
     vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1, stop_words="english")
-    q_mat = vectorizer.fit_transform(questions)
-    print(f"Loaded KB: {len(questions)} Q/A pairs")
-    return questions, answers, vectorizer, q_mat
+    q_mat = vectorizer.fit_transform(questions_lem)
 
-_WORD_RE = re.compile(r"[A-Za-z][A-Za-z\-\']+")
+    print(f"Loaded KB: {len(questions_raw_lower)} Q/A pairs")
+    return questions_raw_lower, answers, vectorizer, q_mat
 
+
+# -------------------------
+# Typo handling (same as your code)
+# -------------------------
 DOMAIN_LEXICON = {
     "recycle","recycling","recyclables","recyclable","contamination","compost","composting","organics",
     "plastic","plastics","glass","metal","aluminum","aluminium","steel","tin","paper","cardboard","carton","cartons",
@@ -126,9 +186,6 @@ DOMAIN_LEXICON = {
     "magazines","newspapers","mail","shredded","tissue","wrap",
     "jars","mixed","color-separation","pyrex",
 }
-
-def tokenize_words(text: str) -> List[str]:
-    return _WORD_RE.findall(text.lower())
 
 def build_vocab(questions: List[str]) -> Set[str]:
     vocab = set(DOMAIN_LEXICON)
@@ -164,18 +221,40 @@ def normalize_typos(user_text: str, vocab: Set[str]) -> str:
             corrected.append(core)
     return " ".join(corrected)
 
-def best_answer_fallback(user_text: str, questions: List[str], answers: List[str], vectorizer: Optional[TfidfVectorizer], q_mat, threshold: float = SIM_THRESHOLD) -> Optional[str]:
+
+# -------------------------
+# Similarity fallback (lemmatisation + TF-IDF + cosine)
+# -------------------------
+def best_answer_fallback(
+    user_text: str,
+    questions: List[str],
+    answers: List[str],
+    vectorizer: Optional[TfidfVectorizer],
+    q_mat,
+    threshold: float = SIM_THRESHOLD
+) -> Optional[str]:
     if vectorizer is None or q_mat is None or not questions:
         return None
-    vec = vectorizer.transform([user_text.lower()])
+
+    # --- REQUIRED: lemmatise user input before TF-IDF ---
+    user_proc = lemmatize_text(user_text.lower())
+
+    vec = vectorizer.transform([user_proc])
     sims = cosine_similarity(vec, q_mat)[0]
     idx = int(sims.argmax())
+
     if DEBUG:
         print(f"[dbg] best={sims[idx]:.3f} | Q≈ {questions[idx][:80]}")
+
     if sims[idx] >= threshold:
         return answers[idx]
+
     return None
 
+
+# -------------------------
+# Wikipedia helper + logging (unchanged)
+# -------------------------
 def wiki_summary(topic: str) -> str:
     try:
         return wikipedia.summary(topic, sentences=2)
@@ -199,37 +278,49 @@ def append_log(log_path: Path, speaker: str, text: str):
     except Exception:
         pass
 
+
 def main():
     global DEBUG, SPELL_FIX_ENABLED
+
+    # NEW: ensure lemmatizer resources exist
+    ensure_nltk()
+
     kernel = load_aiml_kernel()
     questions, answers, vectorizer, q_mat = load_kb(KB_FILE)
     vocab = build_vocab(questions)
+
     banner()
     log_path = start_transcript()
+
     while True:
         try:
             user = input("You: ").strip()
         except EOFError:
             print()
             break
+
         if not user:
             continue
+
         append_log(log_path, "User", user)
         low = user.lower()
+
         if low == ":quit":
             bot = "Goodbye!"
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             break
+
         if low == ":help":
             bot = (
-                "I use AIML for exact matches and TF-IDF + cosine for fallback over a Recycling Q/A KB.\n"
+                "I use AIML for exact matches and lemmatised TF-IDF + cosine for fallback over a Recycling Q/A KB.\n"
                 "Commands: :help  :reload  :stats  :debug on/off  :spell on/off  :dict  :quit\n"
                 "Wikipedia: wiki <topic>"
             )
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
+
         if low == ":reload":
             kernel = load_aiml_kernel()
             questions, answers, vectorizer, q_mat = load_kb(KB_FILE)
@@ -238,11 +329,20 @@ def main():
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
+
         if low == ":stats":
-            bot = f"AIML: active\nKB size: {len(questions)}\nSimilarity threshold: {SIM_THRESHOLD}\nDebug: {'on' if DEBUG else 'off'}\nSpell-fix: {'on' if SPELL_FIX_ENABLED else 'off'}\nVocab size: {len(vocab)}"
+            bot = (
+                f"AIML: active\n"
+                f"KB size: {len(questions)}\n"
+                f"Similarity threshold: {SIM_THRESHOLD}\n"
+                f"Debug: {'on' if DEBUG else 'off'}\n"
+                f"Spell-fix: {'on' if SPELL_FIX_ENABLED else 'off'}\n"
+                f"Vocab size: {len(vocab)}"
+            )
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
+
         if low.startswith(":debug"):
             parts = low.split()
             if len(parts) == 2 and parts[1] in ("on", "off"):
@@ -253,6 +353,7 @@ def main():
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
+
         if low.startswith(":spell"):
             parts = low.split()
             if len(parts) == 2 and parts[1] in ("on", "off"):
@@ -263,11 +364,13 @@ def main():
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
+
         if low == ":dict":
             bot = f"Vocabulary contains {len(vocab)} tokens (KB + domain lexicon)."
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
+
         if low.startswith("wiki "):
             topic = user[5:].strip()
             topic_norm = normalize_typos(topic, vocab)
@@ -275,22 +378,30 @@ def main():
             print("Bot:", bot)
             append_log(log_path, "Bot", bot)
             continue
+
+        # 1) Typo-normalize
         user_norm = normalize_typos(user, vocab)
         if DEBUG and user_norm != user:
             print(f"[spell] '{user}' -> '{user_norm}'")
+
+        # 2) AIML exact match
         resp = kernel.respond(user_norm)
         if resp:
             print("Bot:", resp)
             append_log(log_path, "Bot", resp)
             continue
+
+        # 3) Similarity fallback (lemmatisation + TF-IDF + cosine)
         fall = best_answer_fallback(user_norm, questions, answers, vectorizer, q_mat)
         if fall:
             print("Bot:", fall)
             append_log(log_path, "Bot", fall)
             continue
+
         bot = "I'm not sure about that. Could you rephrase or ask something else?"
         print("Bot:", bot)
         append_log(log_path, "Bot", bot)
+
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,23 @@
+Chat transcript started
+[2026-02-15T08:03:45] User: hello
+[2026-02-15T08:03:45] Bot: Hello! How can I help with recycling today?
+[2026-02-15T08:13:44] User: I have plastic bag, what is the basket I put this
+[2026-02-15T08:13:44] Bot: They’re made from biological feedstocks; biobased does not automatically mean recyclable or compostable locally.
+[2026-02-15T08:13:56] User: what is recycling
+[2026-02-15T08:13:56] Bot: Recycling means collecting and processing materials that would be trash and turning them into new products.
+[2026-02-15T08:14:08] User: what are the categories in recycling
+[2026-02-15T08:14:08] Bot: Recycling is the process of collecting and processing materials that would otherwise be thrown away as trash and turning them into new products.
+[2026-02-15T08:15:15] User: is gift wrap recyclable
+[2026-02-15T08:15:15] Bot: Foil/glitter wrap is usually not recyclable. Plain paper wrap may be accepted; tissue paper often isn't.
+[2026-02-15T08:15:33] User: is plastic bag recyclable?
+[2026-02-15T08:15:33] Bot: Generally no. Take clean bags and film to retail drop-off points if available.
+[2026-02-15T08:16:08] User: is plastic bottle recyclable?
+[2026-02-15T08:16:08] Bot: Crush only if your program recommends it; some systems rely on container shape for sorting.
+[2026-02-15T08:17:24] User: What is the colour of plastic basket
+[2026-02-15T08:17:24] Bot: Some programs accept mixed glass; others require separation. Follow local rules.
+[2026-02-15T08:17:35] User: what are the local rules
+[2026-02-15T08:17:35] Bot: Programs and facilities differ by region; accepted materials and preparation rules vary—always follow local guidance.
+[2026-02-15T08:17:48] User: local guidance
+[2026-02-15T08:17:48] Bot: I'm not sure about that. Could you rephrase or ask something else?
+[2026-02-15T08:17:59] User: what are the local guidance
+[2026-02-15T08:17:59] Bot: I'm not sure about that. Could you rephrase or ask something else?
